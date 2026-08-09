@@ -51,6 +51,20 @@ symbol rename breaks consumers, and a config value is behaviour. They exist so a
 declared change class can be audited, which is why the sensible default gate is
 `--assert format`. Keep that distinction intact in code, docs, and output.
 
+## Releasing (maintainers)
+
+Bump `version` in `package.json`, commit, then push a matching tag:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` re-runs the type check and the tests, refuses
+to publish if the tag and the version disagree, and publishes through npm
+Trusted Publishing — so the release carries a provenance attestation and no
+long-lived npm token exists anywhere. The publisher has to be registered once
+for this package on npmjs.com before the first release.
+
 ## Commits and PRs
 
 - Commit messages in English, imperative mood ("Treat parse failures as
