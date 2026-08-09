@@ -1,4 +1,2 @@
 node_modules/
 dist/
-# vendored until the dowsing release that exports the engine is on npm
-!vendor/*.tgz

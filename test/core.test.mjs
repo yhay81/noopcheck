@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runCheck, violations } from "../dist/core.js";
+import { runCheck, violations } from "../dist/index.js";
 
-/** 使い捨ての git リポジトリで一気通貫に検証する */
+/** Throwaway git repositories, so the git plumbing is exercised for real. */
 function makeRepo() {
   const repo = mkdtempSync(join(tmpdir(), "noopcheck-"));
   const git = (...args) =>
@@ -17,7 +17,7 @@ function makeRepo() {
   return { repo, git };
 }
 
-test("format-only / rename-only / changed をファイル別に判定する", async () => {
+test("classifies format-only, rename-only, changed and whitespace-only per file", async () => {
   const { repo, git } = makeRepo();
   try {
     writeFileSync(
@@ -36,8 +36,6 @@ test("format-only / rename-only / changed をファイル別に判定する", as
     git("add", "-A");
     git("commit", "-m", "base");
 
-    // format-only: 改行・セミコロンだけ / rename-only: 識別子だけ /
-    // changed: 構造が変わる / doc.md: 空白のみ
     writeFileSync(
       join(repo, "fmt.ts"),
       "export function f(a: number) {\n  return a + 1\n}\n",
@@ -61,7 +59,7 @@ test("format-only / rename-only / changed をファイル別に判定する", as
     assert.equal(byPath.get("chg.ts"), "changed");
     assert.equal(byPath.get("doc.md"), "whitespace-only");
 
-    // 宣言クラスのゲート: format は rename/changed を拒む(fail-closed)
+    // The gate is a superset chain: format ⊂ rename ⊂ value.
     assert.deepEqual(
       violations(result, "format")
         .map((f) => f.path)
@@ -72,7 +70,7 @@ test("format-only / rename-only / changed をファイル別に判定する", as
       violations(result, "rename").map((f) => f.path),
       ["chg.ts"],
     );
-    // attention = format 水準を超えるもの全て
+    // Attention = everything above formatting level, with no class declared.
     assert.deepEqual(
       result.attention.map((f) => f.path).sort(),
       ["chg.ts", "ren.ts"],
@@ -82,7 +80,7 @@ test("format-only / rename-only / changed をファイル別に判定する", as
   }
 });
 
-test("追加・削除は fail-closed(--assert format で必ず落ちる)", async () => {
+test("additions and deletions are fail-closed", async () => {
   const { repo, git } = makeRepo();
   try {
     writeFileSync(join(repo, "keep.ts"), "export const a = 1;\n");
@@ -98,7 +96,74 @@ test("追加・削除は fail-closed(--assert format で必ず落ちる)", async
     const byPath = new Map(result.files.map((f) => [f.path, f.verdict]));
     assert.equal(byPath.get("gone.ts"), "deleted");
     assert.equal(byPath.get("new.ts"), "added");
-    assert.equal(violations(result, "format").length, 2);
+    // Even the widest class never accepts an add or a delete.
+    assert.equal(violations(result, "value").length, 2);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("a pure file move is identical, and binaries stay unverified", async () => {
+  const { repo, git } = makeRepo();
+  try {
+    mkdirSync(join(repo, "src"));
+    writeFileSync(
+      join(repo, "src", "a.ts"),
+      "export function f(a: number) { return a + 1; }\n",
+    );
+    // A tiny PNG header — binary content we must never claim to have judged.
+    writeFileSync(join(repo, "logo.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 1]));
+    git("add", "-A");
+    git("commit", "-m", "base");
+
+    execFileSync("git", ["mv", "src/a.ts", "src/b.ts"], { cwd: repo });
+    writeFileSync(join(repo, "logo.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 2]));
+    git("add", "-A");
+    git("commit", "-m", "move and touch binary");
+
+    const result = await runCheck(repo, "HEAD^", "HEAD");
+    const byPath = new Map(result.files.map((f) => [f.path, f.verdict]));
+    // --no-renames means a move shows as an add plus a delete: fail-closed.
+    assert.equal(byPath.get("src/b.ts"), "added");
+    assert.equal(byPath.get("src/a.ts"), "deleted");
+    assert.equal(byPath.get("logo.png"), "unverified");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("declaration files are not judged by the AST engine", async () => {
+  const { repo, git } = makeRepo();
+  try {
+    writeFileSync(join(repo, "types.d.ts"), "export declare const a: number;\n");
+    git("add", "-A");
+    git("commit", "-m", "base");
+    writeFileSync(join(repo, "types.d.ts"), "export declare const b: string;\n");
+    git("add", "-A");
+    git("commit", "-m", "edit");
+
+    const result = await runCheck(repo, "HEAD^", "HEAD");
+    // .d.ts is excluded from AST comparison, so it lands in the text tiers —
+    // and a real content change there must not read as equivalent.
+    const verdict = result.files.find((f) => f.path === "types.d.ts")?.verdict;
+    assert.equal(verdict, "unverified");
+    assert.equal(violations(result, "value").length, 1);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("an empty diff produces no files and no attention", async () => {
+  const { repo, git } = makeRepo();
+  try {
+    writeFileSync(join(repo, "a.ts"), "export const a = 1;\n");
+    git("add", "-A");
+    git("commit", "-m", "base");
+
+    const result = await runCheck(repo, "HEAD", "HEAD");
+    assert.deepEqual(result.files, []);
+    assert.deepEqual(result.attention, []);
+    assert.deepEqual(violations(result, "format"), []);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

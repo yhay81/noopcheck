@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required for npm Trusted Publishing and the provenance attestation:
+      # the registry verifies this workflow's OIDC identity, so no long-lived
+      # npm token is stored anywhere.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm test
+
+      - name: Verify the tag matches the version being published
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json version $pkg" >&2
+            exit 1
+          fi
+
+      # npm >= 11.5.1 publishes via Trusted Publishing when the workflow is
+      # registered as the package's publisher on npmjs.com.
+      - run: npm install -g npm@latest
+      - run: npm publish

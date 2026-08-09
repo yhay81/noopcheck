@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two versions `engines` claims to support.
+        node: [22.18.0, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm test
+
+  # noopcheck runs on its own pull requests. If the tool cannot survive its
+  # own diffs, it has no business running on anyone else's.
+  self-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # HEAD is the merge commit: HEAD^1 = base, HEAD^2 = PR head.
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: What actually changed in this PR
+        run: node dist/cli.js HEAD^1 --head HEAD^2 --markdown >> "$GITHUB_STEP_SUMMARY"

@@ -8,9 +8,14 @@
     "ast",
     "diff",
     "code-review",
+    "review-scope",
     "typescript",
-    "ci"
+    "ci",
+    "codemod",
+    "agent"
   ],
+  "homepage": "https://github.com/yhay81/noopcheck#readme",
+  "bugs": "https://github.com/yhay81/noopcheck/issues",
   "license": "MIT",
   "author": "Yusuke Hayashi <yusuke8h@gmail.com>",
   "repository": {
@@ -18,20 +23,30 @@
     "url": "git+https://github.com/yhay81/noopcheck.git"
   },
   "type": "module",
+  "sideEffects": false,
   "bin": {
     "noopcheck": "./dist/cli.js"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test",
+    "check": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^14.0.2",
-    "dowsing": "file:vendor/dowsing-0.3.0.tgz",
+    "oxc-parser": "^0.143.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
@@ -40,5 +55,9 @@
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

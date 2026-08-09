@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { compareStructure } from "dowsing";
+import { compareStructure } from "./structure.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,7 +43,7 @@ export interface CheckResult {
   attention: FileVerdict[];
 }
 
-async function git(cwd: string, args: string[]): Promise<string> {
+export async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, {
     cwd,
     maxBuffer: 512 * 1024 * 1024,
@@ -68,7 +68,7 @@ async function changedPaths(
 }
 
 /** File content at a revision, or null when it does not exist there. */
-async function showAt(
+export async function showAt(
   cwd: string,
   revision: string,
   path: string,
@@ -87,6 +87,20 @@ const BINARY_FILE =
 
 function stripWhitespace(text: string): string {
   return text.replace(/\s+/g, "");
+}
+
+/**
+ * Is this a file whose meaning noopcheck can actually judge?
+ *
+ * The gate (`--assert`) does not care: anything unjudgeable fails closed, as
+ * it must. The audit does, because its question is "would a reviewer have
+ * needed to read code?" — and a lockfile or a CHANGELOG is not code we can
+ * give a verdict on. Counting those as violations would bury the real signal
+ * under release plumbing, so the audit separates them and reports the count
+ * rather than folding it in.
+ */
+export function isVerifiablePath(path: string): boolean {
+  return TS_FILE.test(path) && !path.endsWith(".d.ts");
 }
 
 function classify(
