@@ -1,0 +1,44 @@
+{
+  "name": "noopcheck",
+  "version": "0.1.0",
+  "description": "Checks whether a \"this is just a refactor\" change really changes nothing — and points at the exact files where it does",
+  "keywords": [
+    "refactor",
+    "no-op",
+    "ast",
+    "diff",
+    "code-review",
+    "typescript",
+    "ci"
+  ],
+  "license": "MIT",
+  "author": "Yusuke Hayashi <yusuke8h@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yhay81/noopcheck.git"
+  },
+  "type": "module",
+  "bin": {
+    "noopcheck": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "dowsing": "file:vendor/dowsing-0.3.0.tgz",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  }
+}
