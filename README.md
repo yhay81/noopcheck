@@ -59,7 +59,7 @@ noopcheck <base> --head <ref>     # compare base...ref instead of base...HEAD
 
 ## Status
 
-Early. The AST engine is inherited from dowsing, where its classifications were manually audited against real diffs (it caught release-bot version bumps by content alone), but noopcheck itself has not yet been run against a broad corpus — treat surprising verdicts as bug reports, they are welcome. The engine dependency currently points at a local build of dowsing; it moves to the published `dowsing` package with the release that exports the engine.
+Early. The AST engine is inherited from [dowsing](https://github.com/yhay81/dowsing) (now archived), where its classifications were manually audited against real diffs (it caught release-bot version bumps by content alone), but noopcheck itself has not yet been run against a broad corpus — treat surprising verdicts as bug reports, they are welcome. The engine ships vendored with this repository (`vendor/dowsing-0.3.0.tgz`, packed from the archived project's final state), so noopcheck is self-contained.
 
 ## License
 
