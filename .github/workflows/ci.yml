@@ -17,9 +17,9 @@ jobs:
         # The two versions `engines` claims to support.
         node: [22.18.0, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
@@ -33,12 +33,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # HEAD is the merge commit: HEAD^1 = base, HEAD^2 = PR head.
-          fetch-depth: 2
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+          # The comparison needs the merge base, including on diverged branches.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
