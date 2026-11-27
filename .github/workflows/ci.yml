@@ -36,7 +36,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           # HEAD is the merge commit: HEAD^1 = base, HEAD^2 = PR head.
-          fetch-depth: 2
+          # The comparison needs the merge base, including on diverged branches.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
